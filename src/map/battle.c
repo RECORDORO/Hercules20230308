@@ -4722,13 +4722,14 @@ static struct Damage battle_calc_weapon_attack(struct block_list *src, struct bl
 
 			case GS_GROUNDDRIFT:
 			case KN_SPEARSTAB:
-			case KN_BOWLINGBASH:
-			case MS_BOWLINGBASH:
 			case MO_BALKYOUNG:
 			case TK_TURNKICK:
 				wd.blewcount=0;
 				break;
-
+			case KN_BOWLINGBASH:
+			case MS_BOWLINGBASH:
+				wd.div_ = 2;
+				break;
 			case KN_AUTOCOUNTER:
 				wd.flag=(wd.flag&~BF_SKILLMASK)|BF_NORMAL;
 				break;

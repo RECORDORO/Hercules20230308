@@ -5280,80 +5280,13 @@ static int skill_castend_damage_id(struct block_list *src, struct block_list *bl
 
 		case KN_BOWLINGBASH:
 		case MS_BOWLINGBASH:
-			{
-				int min_x,max_x,min_y,max_y,i,c,dir,tx,ty;
-				// Chain effect and check range gets reduction by recursive depth, as this can reach 0, we don't use blowcount
-				c = (skill_lv-(flag&0xFFF)+1)/2;
-				// Determine the Bowling Bash area depending on configuration
-				if (battle_config.bowling_bash_area == 0) {
-					// Gutter line system
-					min_x = ((src->x)-c) - ((src->x)-c)%40;
-					if(min_x < 0) min_x = 0;
-					max_x = min_x + 39;
-					min_y = ((src->y)-c) - ((src->y)-c)%40;
-					if(min_y < 0) min_y = 0;
-					max_y = min_y + 39;
-				} else if (battle_config.bowling_bash_area == 1) {
-					// Gutter line system without demi gutter bug
-					min_x = src->x - (src->x)%40;
-					max_x = min_x + 39;
-					min_y = src->y - (src->y)%40;
-					max_y = min_y + 39;
-				} else {
-					// Area around caster
-					min_x = src->x - battle_config.bowling_bash_area;
-					max_x = src->x + battle_config.bowling_bash_area;
-					min_y = src->y - battle_config.bowling_bash_area;
-					max_y = src->y + battle_config.bowling_bash_area;
-				}
-				// Initialization, break checks, direction
-				if((flag&0xFFF) > 0) {
-					// Ignore monsters outside area
-					if(bl->x < min_x || bl->x > max_x || bl->y < min_y || bl->y > max_y)
-						break;
-					// Ignore monsters already in list
-					if(idb_exists(skill->bowling_db, bl->id))
-						break;
-					// Random direction
-					dir = rnd() % UNIT_DIR_MAX;
-				} else {
-					// Create an empty list of already hit targets
-					db_clear(skill->bowling_db);
-					// Direction is walkpath
-					dir = unit_get_opposite_dir(unit->getdir(src));
-				}
-				// Add current target to the list of already hit targets
-				idb_put(skill->bowling_db, bl->id, bl);
-				// Keep moving target in direction square by square
-				tx = bl->x;
-				ty = bl->y;
-				for(i=0;i<c;i++) {
-					// Target coordinates (get changed even if knockback fails)
-					if (Assert_chk(dir >= UNIT_DIR_FIRST && dir < UNIT_DIR_MAX)) {
-						map->freeblock_unlock(); // unblock before assert-returning
-						return 0;
-					}
-					tx -= dirx[dir];
-					ty -= diry[dir];
-					// If target cell is a wall then break
-					if(map->getcell(bl->m, bl, tx, ty, CELL_CHKWALL))
-						break;
-					skill->blown(src,bl,1,dir,0);
-					// Splash around target cell, but only cells inside area; we first have to check the area is not negative
-					if((max(min_x,tx-1) <= min(max_x,tx+1)) &&
-						(max(min_y,ty-1) <= min(max_y,ty+1)) &&
-						(map->foreachinarea(skill->area_sub, bl->m, max(min_x,tx-1), max(min_y,ty-1), min(max_x,tx+1), min(max_y,ty+1), skill->splash_target(src), src, skill_id, skill_lv, tick, flag|BCT_ENEMY, skill->area_sub_count))) {
-						// Recursive call
-						map->foreachinarea(skill->area_sub, bl->m, max(min_x,tx-1), max(min_y,ty-1), min(max_x,tx+1), min(max_y,ty+1), skill->splash_target(src), src, skill_id, skill_lv, tick, (flag|BCT_ENEMY)+1, skill->castend_damage_id);
-						// Self-collision
-						if(bl->x >= min_x && bl->x <= max_x && bl->y >= min_y && bl->y <= max_y)
-							skill->attack(BF_WEAPON,src,src,bl,skill_id,skill_lv,tick,(flag&0xFFF)>0?SD_ANIMATION:0);
-						break;
-					}
-				}
-				// Original hit or chain hit depending on flag
-				skill->attack(BF_WEAPON,src,src,bl,skill_id,skill_lv,tick,(flag&0xFFF)>0?SD_ANIMATION:0);
-			}
+			if (flag & 1) {
+				skill->attack(skill->get_type(skill_id, skill_lv), src, src, bl,skill_id, skill_lv, tick, (skill->area_temp[0]) > 0 ? SD_ANIMATION | (skill->area_temp[0]) : (skill->area_temp[0]));
+				skill->blown(src,bl,skill->get_blewcount(skill_id,skill_lv), -1, 0x0);
+			} else {
+				skill->area_temp[0]	= map->foreachinrange(skill->area_sub, src, skill->get_splash(skill_id,skill_lv),BL_CHAR, src, skill_id, skill_lv, tick, BL_CHAR, src, skill_id, skill_lv, tick, BCT_ENEMY, skill->area_sub_count);
+				map->foreachinrange(skill->area_sub, bl, skill->get_splash(skill_id, skill_lv), skill->splash_target(src), src, skill_id, skill_lv, tick, flag | BCT_ENEMY | SD_SPLASH | 1, skill->castend_damage_id);
+}
 			break;
 
 		case KN_SPEARSTAB:
